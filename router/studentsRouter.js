@@ -1,84 +1,76 @@
 const express = require('express');
-const db = require('../db');
+const { Student } = require('../models/students');
 
 const router = express.Router();
 
 //Named Function
 // Student Data
-const studentList = (req, res) => {
-    db.getBdStudents()
-        .then(students => {
-            res.send(students);
-        })
+const studentList = async (req, res) => {
+    const students = await Student.find()
+        .sort({ name: 1 });
+    res.send(students)
 }
 //New Student
-const newStudent = (req, res) => {
-    const student = req.body;
-    db.getBdStudents()
-        .then(students => {
-            students.push(student);
-            db.insertDbStudents(students)
-                .then(data => {
-                    res.send(student);
-                })
-        })
+const newStudent = async (req, res) => {
+    //const student = req.body;
+    const student = new Student(req.body);
+    try {
+        const result = await student.save();
+        res.send(result);
+    } catch (err) {
+        const errMsg = [];
+        for (field in err.errors) {
+            errMsg.push(err.errors[field].message)
+        }
+        return res.status(400).send(errMsg)
+    }
+
 }
 //Student Detail
-const studentDetail = (req, res) => {
-    const id = parseInt(req.params.id);
-    db.getBdStudents()
-        .then(students => {
-            const student = students.find(item => {
-                return item.id === id;
-            });
-            if (!student) {
-                res.status(404).send("No student found!")
-            } else {
-                res.send(student);
-            }
-        })
+const studentDetail = async (req, res) => {
+    const id = req.params.id;
+    try {
+        const student = await Student.findById(id);
+        if (!student) {
+            return res.status(404).send("ID not found")
+        }
+        res.send(student);
+    } catch (err) {
+        return res.status(404).send("ID not found")
+    }
+
 
 }
 //Update Student List
-const studentUpdate = (req, res) => {
-    const id = parseInt(req.params.id);
+const studentUpdate = async (req, res) => {
+    const id = req.params.id;
     const updatedData = req.body;
-    db.getBdStudents()
-        .then(students => {
-            const student = students.find(item => {
-                return item.id === id;
-            });
-            if (!student) {
-                res.status(404).send("No student found!")
-            } else {
-                const arrayIndex = students.findIndex(stu => stu.id === id);
-                students[arrayIndex] = updatedData;
-                db.insertDbStudents(students)
-                    .then(mesg => {
-                        res.send(updatedData);
-                    })
-            }
-        })
+    try {
+        const student = await Student.findByIdAndUpdate(id, updatedData, { new: true })
+
+        if (!student) {
+            return res.status(404).send("ID not found")
+        }
+        res.send(student)
+    }
+    catch (err) {
+        return res.status(404).send("ID not found")
+    }
 
 }
 // Delete Student
-const studentDelete = (req, res) => {
-    const id = parseInt(req.params.id);
-    db.getBdStudents()
-        .then(students => {
-            const student = students.find(item => {
-                return item.id === id;
-            });
-            if (!student) {
-                res.status(404).send("No student found!")
-            } else {
-                const updatedStudents = students.filter(stu => stu.id !== id);
-                db.insertDbStudents(updatedStudents)
-                    .then(msg => {
-                        res.send(student)
-                    })
-            }
-        })
+const studentDelete = async (req, res) => {
+    const id = req.params.id;
+    try {
+        const student = await Student.findByIdAndDelete(id);
+        if (!student) {
+            return res.status(404).send("ID not found")
+        }
+        res.send(student);
+    } catch (err) {
+        return res.status(404).send("ID not found")
+    }
+
 }
 
 //Refactoring the Routes
@@ -90,15 +82,5 @@ router.route('/:id')
     .get(studentDetail)
     .put(studentUpdate)
     .delete(studentDelete);
-
-// app.get('/api/students', studentList);
-
-// app.post('/api/students', newStudent);
-
-// app.get('/api/students/:id', studentDetail);
-
-// app.put('/api/students/:id', studentUpdate);
-
-// app.delete('/api/students/:id', studentDelete);
 
 module.exports = router;
